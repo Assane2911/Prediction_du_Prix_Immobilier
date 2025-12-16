@@ -19,9 +19,9 @@ st.write("Entrez les caractéristiques de la maison pour obtenir une prédiction
 
 MODEL_PATH = "modele_regression_lineaire.joblib"
 
-# --- Fonction pour créer un pipeline si le fichier est absent ---
+# --- Fonction pour créer un pipeline si le fichier est absent ou incompatible ---
 def create_model(path):
-    st.warning("⚠️ Modèle introuvable. Création d'un pipeline par défaut...")
+    st.warning("⚠️ Modèle introuvable ou incompatible. Création d'un pipeline par défaut...")
     X_train = pd.DataFrame([[1,2,3,4,5,6,7,8]], columns=[
         "MedInc","HouseAge","AveRooms","AveBedrms","Population","AveOccup","Latitude","Longitude"])
     y_train = [100000]
@@ -34,16 +34,16 @@ def create_model(path):
     st.success("✅ Modèle créé et sauvegardé !")
     return pipeline
 
-# --- Chargement du modèle ---
-if not os.path.exists(MODEL_PATH):
-    model = create_model(MODEL_PATH)
-else:
-    try:
+# --- Chargement du modèle avec gestion des erreurs ---
+try:
+    if not os.path.exists(MODEL_PATH):
+        model = create_model(MODEL_PATH)
+    else:
         model = joblib.load(MODEL_PATH)
         st.success("✅ Modèle chargé avec succès !")
-    except Exception as e:
-        st.error(f"Erreur lors du chargement du modèle : {e}")
-        model = create_model(MODEL_PATH)
+except Exception:
+    # Si erreur lors du chargement (incompatibilité), recrée le modèle
+    model = create_model(MODEL_PATH)
 
 # --- Inputs utilisateur avec sliders et layout en colonnes ---
 st.subheader("Caractéristiques de la maison")
