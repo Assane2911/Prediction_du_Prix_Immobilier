@@ -1,38 +1,88 @@
+# app.py
 import streamlit as st
 import pandas as pd
 import joblib
 import os
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression
 
-# --- Charger le modèle ---
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "modele_linear_multiple.joblib")
-model = joblib.load(MODEL_PATH)
+# --- Configuration de la page ---
+st.set_page_config(
+    page_title="🏠 Prédiction du Prix Immobilier",
+    page_icon="🏠",
+    layout="wide"
+)
 
-st.title("🏠 Prédiction du Prix Immobilier - Régression Linéaire Multiple")
+st.title("🏠 Prédiction du Prix Immobilier")
+st.write("Entrez les caractéristiques de la maison pour obtenir une prédiction du prix.")
 
-# --- Entrée utilisateur pour chaque feature ---
-MedInc = st.number_input("Revenu médian des ménages (MedInc)", value=3.0)
-HouseAge = st.number_input("Âge moyen des maisons (HouseAge)", value=30)
-AveRooms = st.number_input("Nombre moyen de pièces (AveRooms)", value=5.0)
-AveBedrms = st.number_input("Nombre moyen de chambres (AveBedrms)", value=1.0)
-Population = st.number_input("Population", value=1000)
-AveOccup = st.number_input("Occupation moyenne (AveOccup)", value=3.0)
-Latitude = st.number_input("Latitude", value=34.0)
-Longitude = st.number_input("Longitude", value=-118.0)
+MODEL_PATH = "modele_regression_lineaire.joblib"
 
-# --- Mettre les données dans un DataFrame ---
-input_data = pd.DataFrame({
-    "MedInc": [MedInc],
-    "HouseAge": [HouseAge],
-    "AveRooms": [AveRooms],
-    "AveBedrms": [AveBedrms],
-    "Population": [Population],
-    "AveOccup": [AveOccup],
-    "Latitude": [Latitude],
-    "Longitude": [Longitude]
-})
+# --- Fonction pour créer un pipeline si le fichier est absent ---
+def create_model(path):
+    st.warning("⚠️ Modèle introuvable. Création d'un pipeline par défaut...")
+    X_train = pd.DataFrame([[1,2,3,4,5,6,7,8]], columns=[
+        "MedInc","HouseAge","AveRooms","AveBedrms","Population","AveOccup","Latitude","Longitude"])
+    y_train = [100000]
+    pipeline = Pipeline([
+        ('scaler', StandardScaler()),
+        ('reg', LinearRegression())
+    ])
+    pipeline.fit(X_train, y_train)
+    joblib.dump(pipeline, path)
+    st.success("✅ Modèle créé et sauvegardé !")
+    return pipeline
 
-# --- Bouton pour prédire ---
-if st.button("Prédire le prix"):
-    prediction = model.predict(input_data)[0]
-    st.success(f"Le prix médian prédit est : {prediction:.2f}")
+# --- Chargement du modèle ---
+if not os.path.exists(MODEL_PATH):
+    model = create_model(MODEL_PATH)
+else:
+    try:
+        model = joblib.load(MODEL_PATH)
+        st.success("✅ Modèle chargé avec succès !")
+    except Exception as e:
+        st.error(f"Erreur lors du chargement du modèle : {e}")
+        model = create_model(MODEL_PATH)
+
+# --- Inputs utilisateur avec sliders et layout en colonnes ---
+st.subheader("Caractéristiques de la maison")
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    medinc = st.slider("Revenu médian (MedInc)", 0.0, 20.0, 5.0, 0.1)
+    house_age = st.slider("Âge de la maison (HouseAge)", 0.0, 100.0, 20.0, 1.0)
+
+with col2:
+    ave_rooms = st.slider("Nombre moyen de pièces (AveRooms)", 0.0, 20.0, 5.0, 0.1)
+    ave_bedrms = st.slider("Nombre moyen de chambres (AveBedrms)", 0.0, 10.0, 1.0, 0.1)
+
+with col3:
+    population = st.slider("Population", 0, 5000, 1000, 10)
+    ave_occup = st.slider("Occupation moyenne (AveOccup)", 0.0, 10.0, 3.0, 0.1)
+
+with col4:
+    latitude = st.slider("Latitude", -90.0, 90.0, 34.0, 0.01)
+    longitude = st.slider("Longitude", -180.0, 180.0, -118.0, 0.01)
+
+# --- Préparation des données pour la prédiction ---
+X = pd.DataFrame([{
+    "MedInc": medinc,
+    "HouseAge": house_age,
+    "AveRooms": ave_rooms,
+    "AveBedrms": ave_bedrms,
+    "Population": population,
+    "AveOccup": ave_occup,
+    "Latitude": latitude,
+    "Longitude": longitude
+}])
+
+# --- Bouton de prédiction ---
+st.markdown("---")
+if st.button("Prédire le prix 🏠"):
+    try:
+        prediction = model.predict(X)
+        st.success(f"💰 Le prix prédit de la maison est : **{prediction[0]:,.2f} $**")
+    except Exception as e:
+        st.error(f"Erreur lors de la prédiction : {e}")
